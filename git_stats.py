@@ -23,6 +23,7 @@ def smart_get(org, repo, stat):
         r = requests.get('https://api.github.com/repos/%s/%s/stats/%s' % (org, repo, stat), auth=(user, password))
         if r.status_code == 202:
             print "Repo %s/%s not in cache, retrying %s more times before giving up.." % (org, repo, (retry_max-retry_counter))
+            time.sleep(2)
         elif r.status_code == 200:
             ## looks good, assuming reasonable json
             return r.json()
