@@ -5,9 +5,11 @@ import requests
 import sys
 import time
 
-user     = 'LOGIN'
-password = 'PASSWORD'
-org      = 'YOUR_ORG'
+### configurables
+user            = 'LOGIN'
+password        = 'PASSWORD'
+org             = 'YOUR_ORG'
+repos_to_ignore = [] ## add names you don't want in the report here
 
 repos = []
 totals = {}
@@ -26,17 +28,28 @@ def smart_get(org, repo, stat):
             time.sleep(2)
         elif r.status_code == 200:
             ## looks good, assuming reasonable json
+            print "Repo %s/%s (%s) found in cache, all good.." % (org, repo, stat)
             return r.json()
         else:
             print "Some other bad status while querying for %s/%s" % (org, repo)
             raise
 
     ## giving up
+    print "Unknown status code returned, exiting.. probably try running it again, or check creds"
     sys.exit(1)
 
 def get_repos():
     r = requests.get('https://api.github.com/orgs/%s/repos' % org, auth=(user, password))
-    for repo in r.json(): repos.append(repo['name'])
+    if r.status_code != 200:
+        print "Unable to get repo list from Github - probably an auth problem.  HTTP status was %s, giving up" % r.status_code
+        sys.exit(1)
+
+    for repo in r.json():
+        repos.append(repo['name'])
+
+    for x in repos_to_ignore:
+        if x in repos:
+            repos.remove(x)
 
 def get_activity():
     for repo in repos:
@@ -58,7 +71,7 @@ def get_activity():
         totals[repo] = [total, adds, deletes]
         
 def print_activity():
-    print "%s Activity, last 52 weeks" % org
+    print "\n%s Activity, last 52 weeks" % org
     print "-" * 75
     print "%-40s %-10s %-10s %-10s" % ("Repository", "Commits", "Added", "Deleted")
     print "-" * 75
@@ -73,9 +86,9 @@ def print_activity():
         total_adds_all_repos += totals[repo][1]
         total_deletes_all_repos += totals[repo][2]
 
-    print "\nTotal commits for 2015: %s" % total_commits_all_repos
-    print "Total lines added for 2015: %s" % total_adds_all_repos
-    print "Total lines deleted for 2015: %s" % total_deletes_all_repos
+    print "\nTotal commits for the last 52 weeks: %s" % total_commits_all_repos
+    print "Total lines added for the last 52 weeks: %s" % total_adds_all_repos
+    print "Total lines deleted for the last 52 weeks: %s" % total_deletes_all_repos
     print "Delta code added: %s" % (int(total_adds_all_repos) + int(total_deletes_all_repos))
 
 if __name__ == "__main__":
